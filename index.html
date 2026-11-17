@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HCO⁺ Opacity Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: lab-notebook instrument — sticky control column on the left, equations + three stacked diagnostic plots on the right; stacks to one column on phones. */
+:root {
+  --bg: #f3f5f8;
+  --panel: #ffffff;
+  --ink: #17202e;
+  --muted: #5a6577;
+  --rule: #d9dee7;
+  --grid: #e8ecf2;
+  --hco: #c2410c;      /* HCO+ (1-0) */
+  --h13: #1d5fa8;      /* H13CO+ (1-0) */
+  --ref: #8a6d1c;      /* reference curves */
+  --ok: #1f7a4d; --ok-bg: rgba(31,122,77,.10);
+  --warn: #9a6200; --warn-bg: rgba(200,140,0,.12);
+  --lim: #5a6577; --lim-bg: rgba(90,101,119,.10);
+  --display: "Spectral", Georgia, serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #10151d; --panel: #171e29; --ink: #e6eaf1; --muted: #9aa5b6; --rule: #2a3442; --grid: #212b38;
+  --hco: #ff8a4c; --h13: #6fb0ff; --ref: #d9b85a;
+  --ok: #5fd39a; --ok-bg: rgba(95,211,154,.12); --warn: #f0b84a; --warn-bg: rgba(240,184,74,.13);
+  --lim: #9aa5b6; --lim-bg: rgba(154,165,182,.10); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #10151d; --panel: #171e29; --ink: #e6eaf1; --muted: #9aa5b6; --rule: #2a3442; --grid: #212b38;
+  --hco: #ff8a4c; --h13: #6fb0ff; --ref: #d9b85a;
+  --ok: #5fd39a; --ok-bg: rgba(95,211,154,.12); --warn: #f0b84a; --warn-bg: rgba(240,184,74,.13);
+  --lim: #9aa5b6; --lim-bg: rgba(154,165,182,.10); color-scheme: dark; }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 48px; }
+header { display: grid; gap: 10px; margin-bottom: 22px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: clamp(26px, 3.4vw, 36px); line-height: 1.15; margin: 0; text-wrap: balance; }
+h1 .a { color: var(--hco); } h1 .b { color: var(--h13); }
+.lede { color: var(--muted); max-width: 78ch; margin: 0; }
+
+/* equation strip */
+.eqs { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+.eqcard { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 14px 8px; min-width: 0; display: grid; gap: 2px; }
+.eqcard small { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.mathblock { overflow-x: auto; overflow-y: hidden; }
+mjx-container[display="true"] { margin: 6px 0 !important; }
+mjx-container { color: inherit; }
+
+.grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 22px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0,1fr); } }
+aside { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); display: grid; gap: 14px; }
+@media (max-width: 900px) { aside { position: static; } }
+.box { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; display: grid; gap: 12px; min-width: 0; }
+.box h2 { font-family: var(--body); font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin: 0; font-weight: 600; }
+
+.ctl { display: grid; gap: 4px; }
+.ctl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ctl label { font-size: 13.5px; }
+.ctl output { font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+input[type=range] { width: 100%; accent-color: var(--h13); margin: 0; }
+.tau-ctl input[type=range] { accent-color: var(--hco); height: 26px; }
+.tau-big { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tau-big div { border: 1px solid var(--rule); border-radius: 6px; padding: 6px 10px; display: grid; gap: 2px; }
+.tau-big small { font-size: 12.5px; color: var(--muted); }
+.tau-big b { font-family: var(--mono); font-weight: 500; font-size: 19px; font-variant-numeric: tabular-nums; }
+.tau-big .t13 b { color: var(--h13); } .tau-big .t12 b { color: var(--hco); }
+.scale { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+button, select { font: inherit; font-size: 13px; color: var(--ink); background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+button:hover, select:hover { border-color: var(--muted); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--h13); outline-offset: 2px; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 13.5px; }
+.note { font-size: 12.5px; color: var(--muted); margin: 0; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+main { display: grid; gap: 18px; min-width: 0; }
+.status { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.pill { font-size: 13px; font-weight: 600; padding: 4px 11px; border-radius: 999px; }
+.pill.ok { color: var(--ok); background: var(--ok-bg); } .pill.warn { color: var(--warn); background: var(--warn-bg); } .pill.lim { color: var(--lim); background: var(--lim-bg); }
+.readout { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px 18px; }
+.readout div { display: grid; gap: 1px; }
+.readout small { font-size: 12.5px; color: var(--muted); }
+.readout span.v { font-family: var(--mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+.fig { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px 10px; display: grid; gap: 6px; min-width: 0; }
+.fig h3 { font-family: var(--display); font-weight: 600; font-size: 19px; margin: 0; }
+.fig p { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 82ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--muted); align-items: center; }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid; vertical-align: middle; margin-right: 6px; }
+.legend i.d { border-top-style: dashed; } .legend i.sw { height: 10px; border: 0; border-radius: 2px; }
+svg.plot { width: 100%; height: auto; display: block; font-family: var(--mono); }
+svg.plot text { fill: var(--muted); font-size: 11.5px; }
+svg.plot .lab { fill: var(--ink); font-family: var(--body); font-size: 12.5px; }
+.summary { font-size: 14px; color: var(--ink); background: var(--bg); border-radius: 6px; padding: 8px 12px; }
+.summary b { font-family: var(--mono); font-weight: 500; }
+
+.model { display: grid; gap: 14px; }
+.model h3 { font-family: var(--display); font-weight: 600; font-size: 19px; margin: 0; }
+.model .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 6px 26px; }
+.model .step { min-width: 0; display: grid; gap: 2px; }
+.model .step h4 { font-size: 13.5px; font-weight: 600; margin: 4px 0 0; }
+.model .step p { margin: 0; color: var(--muted); font-size: 13.5px; }
+.regimes { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
+.regime { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; align-content: start; min-width: 0; }
+.regime b { font-size: 13.5px; }
+.regime p { margin: 0; font-size: 13.5px; color: var(--muted); }
+.regime.r1 { border-color: var(--lim); } .regime.r2 { border-color: var(--ok); } .regime.r3 { border-color: var(--lim); }
+.refs { font-size: 13.5px; }
+.refs ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.refs a { color: var(--h13); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<script>
+window.MathJax = {
+  tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+  svg: { fontCache: "none" },
+  startup: { typeset: true },
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg-full.js" async></script>
+</head>
+<body>
+
+<div class="wrap">
+<header>
+  <h1>Optical depth from <span class="a">HCO⁺</span> / <span class="b">H¹³CO⁺</span> (1–0)</h1>
+  <p class="lede">Both lines share the excitation temperature \(T_{\rm ex}\), the beam filling factor \(f\) and the intrinsic line width. Their opacities differ only through the abundance ratio \(X = [\mathrm{HCO^+}]/[\mathrm{H^{13}CO^+}]\). Drag the optical-depth slider from thin to thick to see how the spectra change and where the observed line ratio actually pins down \(\tau\). Throughout, \(\tau_{12}\) and \(\tau_{13}\) are the line-centre opacities of HCO⁺ and H¹³CO⁺.</p>
+  <div class="eqs">
+    <div class="eqcard"><small>Radiative transfer</small><div class="mathblock">\[ T_{\rm mb}(v) = f\,\big[J_\nu(T_{\rm ex}) - J_\nu(T_{\rm bg})\big]\big(1 - e^{-\tau(v)}\big) \]</div></div>
+    <div class="eqcard"><small>Opacity of the two isotopologues</small><div class="mathblock">\[ \tau(v) = \tau_0\, e^{-v^2/2\sigma_v^2}, \qquad \tau_{12} = \kappa\, X\, \tau_{13} \]</div></div>
+    <div class="eqcard"><small>Observable line ratio</small><div class="mathblock">\[ R \equiv \frac{T_{\rm mb}(\mathrm{HCO^+})}{T_{\rm mb}(\mathrm{H^{13}CO^+})} = \varepsilon\,\frac{1 - e^{-\kappa X \tau_{13}}}{1 - e^{-\tau_{13}}} \]</div></div>
+  </div>
+</header>
+
+<div class="grid">
+<aside>
+  <section class="box tau-ctl">
+    <h2>Optical depth (line centre)</h2>
+    <div class="tau-big">
+      <div class="t13"><small>\(\tau_{13}\) (H¹³CO⁺)</small><b id="o_t13">–</b></div>
+      <div class="t12"><small>\(\tau_{12} = \kappa X \tau_{13}\)</small><b id="o_t12">–</b></div>
+    </div>
+    <input type="range" id="lt" min="-3.5" max="1.5" step="0.01" value="-1.3" aria-label="log10 of H13CO+ line-centre optical depth">
+    <div class="scale"><span>both thin</span><span>HCO⁺ thick</span><span>both thick</span></div>
+    <div class="btns"><button id="play" type="button">▶ Sweep thin → thick</button></div>
+  </section>
+
+  <section class="box">
+    <h2>Abundance ratio \(X\)</h2>
+    <div class="ctl"><div class="row"><label for="X">\(X = [\mathrm{HCO^+}]/[\mathrm{H^{13}CO^+}]\)</label><output id="o_X"></output></div>
+      <input type="range" id="X" min="10" max="150" step="1" value="66"></div>
+    <div class="ctl"><div class="row"><label for="sX">Fractional uncertainty \(\sigma_X/X\)</label><output id="o_sX"></output></div>
+      <input type="range" id="sX" min="0" max="0.5" step="0.01" value="0.15"></div>
+    <div class="two">
+      <div class="ctl"><label for="grad">Set \(X\) from gradient</label>
+        <select id="grad">
+          <option value="luo">Luo+24 (HCO⁺ abs.)</option>
+          <option value="yan">Yan+19 (H₂CO)</option>
+          <option value="milam">Milam+05 (CO/CN/H₂CO)</option>
+        </select></div>
+      <div class="ctl"><div class="row"><label for="rgc">\(R_{\rm GC}\)</label><output id="o_rgc"></output></div>
+        <input type="range" id="rgc" min="0" max="16" step="0.1" value="8.1"></div>
+    </div>
+    <p class="note"><span id="gradnote"></span> Moving \(R_{\rm GC}\) or the gradient resets \(X\).</p>
+  </section>
+
+  <section class="box">
+    <h2>Shared physical conditions</h2>
+    <div class="ctl"><div class="row"><label for="Tex">Excitation temperature \(T_{\rm ex}\)</label><output id="o_Tex"></output></div>
+      <input type="range" id="Tex" min="3.5" max="40" step="0.5" value="8"></div>
+    <div class="ctl"><div class="row"><label for="ff">Beam filling factor \(f\)</label><output id="o_ff"></output></div>
+      <input type="range" id="ff" min="0.05" max="1" step="0.01" value="1"></div>
+    <div class="ctl"><div class="row"><label for="fw">Intrinsic width \(\Delta v_{\rm FWHM}\)</label><output id="o_fw"></output></div>
+      <input type="range" id="fw" min="0.3" max="6" step="0.1" value="1.5"></div>
+  </section>
+
+  <section class="box">
+    <h2>Observation</h2>
+    <div class="ctl"><div class="row"><label for="rms">Noise per channel \(\sigma_{\rm rms}\)</label><output id="o_rms"></output></div>
+      <input type="range" id="rms" min="0.005" max="0.3" step="0.005" value="0.05"></div>
+    <div class="ctl"><div class="row"><label for="dv">Channel width \(\delta v\)</label><output id="o_dv"></output></div>
+      <input type="range" id="dv" min="0.03" max="0.5" step="0.01" value="0.1"></div>
+    <label class="check"><input type="checkbox" id="useLine" checked> <span>Fit whole line (S/N gain \(g\), see equations)</span></label>
+    <label class="check"><input type="checkbox" id="noise" checked> Add noise to spectra</label>
+    <label class="check"><input type="checkbox" id="showRef"> <span>Show H¹³CO⁺ \(\times\,\kappa X\) (thin expectation)</span></label>
+    <div class="ctl"><div class="row"><label for="thr">“Constrained” if \(\sigma_\tau/\tau\) below</label><output id="o_thr"></output></div>
+      <input type="range" id="thr" min="0.05" max="1" step="0.01" value="0.3"></div>
+  </section>
+</aside>
+
+<main>
+  <section class="box">
+    <div class="status"><span class="pill" id="pill">–</span>
+      <span class="note">
+        <span id="in_up" hidden>\(R\) agrees with the thin limit \(\varepsilon\kappa X\) within \(1\sigma\), so the data only bound \(\tau\) from above.</span>
+        <span id="in_low" hidden>\(R\) agrees with the thick limit \(\varepsilon \approx 1\) within \(1\sigma\). H¹³CO⁺ is saturated too, so only a lower limit survives.</span>
+        <span id="in_ok" hidden>\(R\) sits on the steep part of the curve, so both \(\tau_{13}\) and \(\tau_{12}\) are measured.</span>
+        <span id="in_weak" hidden>Both bounds exist, but the \(1\sigma\) errors exceed the chosen threshold.</span>
+      </span></div>
+    <div class="readout">
+      <div><small>\(T_{\rm mb}^{\rm peak}(\mathrm{HCO^+})\)</small><span class="v" id="r_T12"></span></div>
+      <div><small>\(T_{\rm mb}^{\rm peak}(\mathrm{H^{13}CO^+})\)</small><span class="v" id="r_T13"></span></div>
+      <div><small>Peak ratio \(R \pm \sigma_R\)</small><span class="v" id="r_R"></span></div>
+      <div><small>Integrated ratio \(\int T_{12}\,dv / \int T_{13}\,dv\)</small><span class="v" id="r_RW"></span></div>
+      <div><small>HCO⁺ width \(\Delta v_{\rm obs}/\Delta v_{\rm FWHM}\)</small><span class="v" id="r_br"></span></div>
+      <div><small>Recovered \(\tau_{13}\) (\(1\sigma\))</small><span class="v" id="r_tau13"></span></div>
+      <div><small>Recovered \(\tau_{12}\) (\(1\sigma\))</small><span class="v" id="r_tau12"></span></div>
+      <div><small>LTE factors \(\kappa,\ \varepsilon\)</small><span class="v" id="r_ke"></span></div>
+    </div>
+  </section>
+
+  <section class="fig">
+    <h3>Spectra</h3>
+    <p>Main-beam temperature at the current optical depth. Once HCO⁺ saturates it flattens and broadens, while H¹³CO⁺ keeps growing.</p>
+    <div class="legend"><span><i style="border-color:var(--hco)"></i>HCO⁺ (1–0), 89.189 GHz</span><span><i style="border-color:var(--h13)"></i>H¹³CO⁺ (1–0), 86.754 GHz</span><span id="lg_ref" hidden><i class="d" style="border-color:var(--ref)"></i>H¹³CO⁺ \(\times\,\kappa X\)</span><span><i class="d" style="border-color:var(--muted)"></i>saturation \(f\,[J_\nu(T_{\rm ex}) - J_\nu(T_{\rm bg})]\)</span></div>
+    <svg class="plot" id="p_spec" viewBox="0 0 680 300" role="img" aria-label="Simulated spectra"></svg>
+  </section>
+
+  <section class="fig">
+    <h3>Line ratio vs. optical depth</h3>
+    <p>The ratio carries information only where the curve is steep. The vertical bar is the \(1\sigma\) uncertainty on \(R\) (noise plus \(\sigma_X\)). Its horizontal projection is the \(\tau_{13}\) interval it maps to.</p>
+    <div class="legend"><span><i style="border-color:var(--ink)"></i>peak ratio</span><span><i class="d" style="border-color:var(--ink)"></i>integrated-intensity ratio</span><span><i class="sw" style="background:var(--grid)"></i>\(X \pm \sigma_X\)</span><span><i class="d" style="border-color:var(--muted)"></i>limits \(\varepsilon\kappa X\) and \(\varepsilon\)</span></div>
+    <svg class="plot" id="p_ratio" viewBox="0 0 680 320" role="img" aria-label="Line ratio versus optical depth"></svg>
+  </section>
+
+  <section class="fig">
+    <h3>Where is \(\tau\) constrained?</h3>
+    <p>Fractional \(1\sigma\) uncertainty of the derived opacities across all \(\tau_{13}\), for the noise, \(T_{\rm ex}\), \(f\) and \(\sigma_X\) chosen at left. Background bands mark the regimes.</p>
+    <div class="legend"><span><i style="border-color:var(--h13)"></i>\(\sigma(\tau_{13})/\tau_{13}\)</span><span><i style="border-color:var(--hco)"></i>\(\sigma(\tau_{12})/\tau_{12}\)</span><span><i class="sw" style="background:var(--ok-bg);outline:1px solid var(--ok)"></i>constrained</span><span><i class="sw" style="background:var(--warn-bg);outline:1px solid var(--warn)"></i>weak</span><span><i class="sw" style="background:var(--lim-bg);outline:1px solid var(--lim)"></i>limit only</span></div>
+    <svg class="plot" id="p_con" viewBox="0 0 680 320" role="img" aria-label="Fractional uncertainty of optical depth"></svg>
+    <div class="summary">
+      <span id="sum_ok">Both opacities are known to better than <b id="s_thr"></b> for \(\tau_{13}\) in <b id="s_r13"></b>, i.e. \(\tau_{12}\) in <b id="s_r12"></b>. \(\tau_{13}\) is measured best near <b id="s_best"></b>. \(\tau_{12}\) can never be better than \(\sigma_X/X\) = <b id="s_sx"></b> (dotted line).</span>
+      <span id="sum_no" hidden>No \(\tau\) meets the threshold with these settings. Lower \(\sigma_{\rm rms}\), raise \(T_{\rm ex}\) or \(f\), or reduce \(\sigma_X\).</span>
+    </div>
+  </section>
+
+  <section class="box model">
+    <h3>Model equations</h3>
+    <div class="regimes">
+      <div class="regime r1"><b>Both thin, \(\kappa X\tau_{13} \ll 1\)</b>
+        <div class="mathblock">\[ R \to \varepsilon\,\kappa X \]</div>
+        <p>The ratio returns \(X\) and carries no information on \(\tau\). Only an upper limit is possible.</p></div>
+      <div class="regime r2"><b>HCO⁺ thick, H¹³CO⁺ thin</b>
+        <div class="mathblock">\[ R \simeq \frac{\varepsilon}{1 - e^{-\tau_{13}}} \]</div>
+        <div class="mathblock">\[ \Rightarrow\ \tau_{13} = -\ln\!\Big(1 - \frac{\varepsilon}{R}\Big) \]</div>
+        <p>Independent of \(X\). Then \(\tau_{12} = \kappa X \tau_{13}\) inherits \(\sigma_X/X\).</p></div>
+      <div class="regime r3"><b>Both thick, \(\tau_{13} \gtrsim 2\)</b>
+        <div class="mathblock">\[ R \to \varepsilon \approx 1,\quad \frac{\partial R}{\partial \tau_{13}} \propto e^{-\tau_{13}} \]</div>
+        <p>The curve flattens exponentially. Only a lower limit survives.</p></div>
+    </div>
+    <div class="steps">
+      <div class="step"><h4>Rayleigh–Jeans equivalent temperature</h4>
+        <div class="mathblock">\[ J_\nu(T) = \frac{h\nu/k}{e^{h\nu/kT} - 1} \]</div>
+        <p>\(h\nu/k = 4.28\) K for HCO⁺ and \(4.16\) K for H¹³CO⁺. A fully thick line saturates at \(f\,[J_\nu(T_{\rm ex}) - J_\nu(T_{\rm bg})]\), below \(T_{\rm ex}\), with \(T_{\rm bg} = 2.725\) K.</p></div>
+      <div class="step"><h4>Opacity ratio in LTE</h4>
+        <div class="mathblock">\[ \kappa = \frac{\big(1 - e^{-h\nu_{12}/kT_{\rm ex}}\big)/Q_{12}(T_{\rm ex})}{\big(1 - e^{-h\nu_{13}/kT_{\rm ex}}\big)/Q_{13}(T_{\rm ex})} \]</div>
+        <div class="mathblock">\[ Q(T) = \sum_J (2J+1)\, e^{-hBJ(J+1)/kT} \]</div>
+        <p>Same dipole moment (\(\mu \approx 3.9\) D) for both, so \(\kappa \approx 1.04\)–\(1.06\) and \(\tau_{12}/\tau_{13} = \kappa X\).</p></div>
+      <div class="step"><h4>Ratio of saturation levels</h4>
+        <div class="mathblock">\[ \varepsilon = \frac{J_{\nu_{12}}(T_{\rm ex}) - J_{\nu_{12}}(T_{\rm bg})}{J_{\nu_{13}}(T_{\rm ex}) - J_{\nu_{13}}(T_{\rm bg})} \approx 0.97\text{–}0.99 \]</div>
+        <p>\(f\) cancels in \(R\) because both lines share it.</p></div>
+      <div class="step"><h4>Measurement error on the ratio</h4>
+        <div class="mathblock">\[ \frac{\sigma_R}{R} = \frac{1}{g}\sqrt{\Big(\frac{\sigma_{\rm rms}}{T_{12}}\Big)^2 + \Big(\frac{\sigma_{\rm rms}}{T_{13}}\Big)^2} \]</div>
+        <p>\(g = \sqrt{\Delta v_{\rm FWHM}/\delta v}\) when the whole line is fitted, otherwise \(g = 1\) (peak channel only).</p></div>
+      <div class="step"><h4>Propagated opacity errors</h4>
+        <div class="mathblock">\[ \sigma_{\tau_{13}}^2 = \frac{\sigma_R^2 + (\partial_X R\,\sigma_X)^2}{(\partial_\tau R)^2} \]</div>
+        <div class="mathblock">\[ \sigma_{\tau_{12}}^2 = \Big(\frac{\kappa X \sigma_R}{\partial_\tau R}\Big)^2 + \Big[\kappa\Big(\tau_{13} - X\frac{\partial_X R}{\partial_\tau R}\Big)\sigma_X\Big]^2 \]</div></div>
+      <div class="step"><h4>Opacity broadening of HCO⁺</h4>
+        <div class="mathblock">\[ \frac{\Delta v_{\rm obs}}{\Delta v_{\rm FWHM}} = \left[\frac{1}{\ln 2}\,\ln\!\frac{\tau_0}{\ln\!\big(2/(1 + e^{-\tau_0})\big)}\right]^{1/2} \]</div>
+        <p>Phillips et al. (1979). It tends to 1 for \(\tau_0 \ll 1\).</p></div>
+    </div>
+  </section>
+
+  <section class="box refs">
+    <h2>Abundance ratio: literature</h2>
+    <ul>
+      <li>Luo et al. 2024, A&amp;A, HCO⁺/H¹³CO⁺ absorption: \({}^{12}\mathrm{C}/{}^{13}\mathrm{C} = 6.4\,R_{\rm GC} + 25.9\), local value \(66 \pm 5\). <a href="https://arxiv.org/abs/2409.11821" target="_blank" rel="noopener">arXiv:2409.11821</a></li>
+      <li>Yan et al. 2019, ApJ, H₂CO: \(5.08\,R_{\rm GC} + 11.86\). <a href="https://arxiv.org/abs/1904.04108" target="_blank" rel="noopener">arXiv:1904.04108</a></li>
+      <li>Milam et al. 2005, ApJ 634, 1126, CO/CN/H₂CO combined: \(6.21\,D_{\rm GC} + 18.71\).</li>
+      <li>Fractionation: \(\mathrm{HCO^+ + {}^{13}CO \rightleftharpoons H^{13}CO^+ + CO} + \Delta E\), with \(\Delta E/k \approx 17.4\) K (Mladenović &amp; Roueff 2014). It enriches H¹³CO⁺ in cold dense gas, so \(X\) can fall below the elemental \({}^{12}\mathrm{C}/{}^{13}\mathrm{C}\) (Colzi et al. 2020, <a href="https://arxiv.org/abs/2006.03362" target="_blank" rel="noopener">arXiv:2006.03362</a>). Luo et al. find the effect small in diffuse gas but important above \(\sim 10^4\ \mathrm{cm^{-3}}\).</li>
+      <li>Not modelled: a different \(T_{\rm ex}\) for HCO⁺ from radiative trapping, self-absorption by cold foreground gas, and a larger emitting area for the thick line.</li>
+    </ul>
+  </section>
+</main>
+</div>
+
+<script>
+(() => {
+const h = 6.62607015e-34, kB = 1.380649e-23, Tbg = 2.725;
+const NU12 = 89.188525e9, NU13 = 86.754288e9, B12 = 44594.43e6, B13 = 43377.30e6;
+const $ = id => document.getElementById(id);
+const GRAD = {
+  luo:   { a: 6.4,  b: 25.9,  txt: "Luo+2024: 6.4 R + 25.9 (HCO⁺ absorption)" },
+  yan:   { a: 5.08, b: 11.86, txt: "Yan+2019: 5.08 R + 11.86 (H₂CO)" },
+  milam: { a: 6.21, b: 18.71, txt: "Milam+2005: 6.21 R + 18.71 (combined)" },
+};
+
+// ---------- physics ----------
+const Jnu = (T, nu) => { const x = h * nu / kB; return x / Math.expm1(x / T); };
+function Qrot(T, B) { let q = 0; for (let J = 0; J < 400; J++) { const t = (2*J+1) * Math.exp(-h*B*J*(J+1)/(kB*T)); q += t; if (J > 5 && t < 1e-12*q) break; } return q; }
+// tau ∝ mu^2 N (1 - e^{-hν/kT}) / Q(T) for J=1-0 with equal mu
+function kappa(T) {
+  return (-Math.expm1(-h*NU12/(kB*T)) / Qrot(T, B12)) / (-Math.expm1(-h*NU13/(kB*T)) / Qrot(T, B13));
+}
+const om = t => -Math.expm1(-t); // 1 - e^{-t}
+
+function model(p) {
+  const k = kappa(p.Tex);
+  const A12 = p.f * (Jnu(p.Tex, NU12) - Jnu(Tbg, NU12));
+  const A13 = p.f * (Jnu(p.Tex, NU13) - Jnu(Tbg, NU13));
+  const eps = A12 / A13;
+  const gain = p.useLine ? Math.sqrt(Math.max(1, p.fw / p.dv)) : 1;
+  const F  = (t, X) => eps * om(k*X*t) / om(t);
+  const Ft = (t, X) => { const a = k*X, n = om(a*t), d = om(t); return eps * (a*Math.exp(-a*t)*d - n*Math.exp(-t)) / (d*d); };
+  const FX = (t, X) => eps * k * t * Math.exp(-k*X*t) / om(t);
+  function invert(R, X) { // F decreasing in t
+    const lo = 1e-7, hi = 1e4;
+    if (R >= F(lo, X)) return 0;
+    if (R <= F(hi, X)) return Infinity;
+    let a = Math.log(lo), b = Math.log(hi);
+    for (let i = 0; i < 70; i++) { const m = (a+b)/2; if (F(Math.exp(m), X) > R) a = m; else b = m; }
+    return Math.exp((a+b)/2);
+  }
+  function analyse(t) {
+    const X = p.X, sX = p.sX * X;
+    const T12 = A12 * om(k*X*t), T13 = A13 * om(t), R = T12 / T13;
+    const sR = R * Math.hypot(p.rms / T12, p.rms / T13) / gain;
+    const ft = Ft(t, X), fx = FX(t, X);
+    const sT13 = Math.hypot(sR / ft, fx * sX / ft);
+    const sT12 = Math.hypot(k*X*sR / ft, (k*t - k*X*fx/ft) * sX);
+    const sEff = Math.hypot(sR, fx * sX);
+    const tLo = invert(R + sEff, X), tHi = invert(R - sEff, X);
+    let regime;
+    if (tLo === 0) regime = "up";
+    else if (!isFinite(tHi)) regime = "low";
+    else regime = (sT12 / (k*X*t) < p.thr && sT13 / t < p.thr) ? "ok" : "weak";
+    return { T12, T13, R, sR, sEff, f13: sT13 / t, f12: sT12 / (k*X*t), tLo, tHi, regime };
+  }
+  function Wratio(t) { // integrated-intensity ratio for Gaussian tau profile
+    const a = k * p.X * t; let s12 = 0, s13 = 0;
+    for (let i = -400; i <= 400; i++) { const x = i * 0.02, g = Math.exp(-x*x/2); s12 += om(a*g); s13 += om(t*g); }
+    return eps * s12 / s13;
+  }
+  return { k, A12, A13, eps, F, invert, analyse, Wratio };
+}
+
+// observed FWHM broadening of a Gaussian-opacity line (Phillips et al. 1979)
+function broaden(t0) {
+  if (t0 < 1e-6) return 1;
+  const a = -Math.log((1 + Math.exp(-t0)) / 2);
+  return Math.sqrt(Math.log(t0 / a) / Math.LN2);
+}
+
+// seeded gaussian noise so spectra don't flicker while dragging
+let seed = 7;
+function noiseArr(n) {
+  let s = seed >>> 0; const r = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const out = []; for (let i = 0; i < n; i++) { const u = Math.max(r(), 1e-12), v = r(); out.push(Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v)); }
+  return out;
+}
+
+// ---------- TeX labels inside SVG (MathJax SVG output, cached) ----------
+let mjReady = false;
+const texCache = new Map();
+function texSvg(parent, src, alt, x, y, o = {}) {
+  const size = o.size || 13, anchor = o.anchor || "middle", color = o.color || "var(--ink)";
+  const g = el("g", { transform: `translate(${x.toFixed(1)},${y.toFixed(1)})${o.rotate ? ` rotate(${o.rotate})` : ""}`, style: `color:${color}` }, parent);
+  if (!mjReady) {
+    el("text", { x: 0, y: 4, "text-anchor": anchor, class: "lab", style: `fill:${color}` }, g).textContent = alt;
+    return g;
+  }
+  let proto = texCache.get(src);
+  if (!proto) {
+    if (texCache.size > 600) texCache.clear();
+    proto = MathJax.tex2svg(src, { display: false }).querySelector("svg");
+    texCache.set(src, proto);
+  }
+  const s = proto.cloneNode(true), ex = size * 0.45;
+  const w = parseFloat(s.getAttribute("width")) * ex, hgt = parseFloat(s.getAttribute("height")) * ex;
+  const va = parseFloat((s.getAttribute("style") || "").replace(/.*vertical-align:\s*/, "")) || 0;
+  const d = -va * ex; // descent below baseline
+  s.removeAttribute("style");
+  s.setAttribute("width", w.toFixed(2)); s.setAttribute("height", hgt.toFixed(2));
+  s.setAttribute("x", (anchor === "middle" ? -w / 2 : anchor === "end" ? -w : 0).toFixed(2));
+  s.setAttribute("y", (o.center ? -hgt / 2 : d - hgt).toFixed(2));
+  s.style.overflow = "visible";
+  g.appendChild(s);
+  return g;
+}
+
+// ---------- tiny SVG plotter ----------
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function fmt(v) {
+  if (v === 0) return "0";
+  return String(+v.toPrecision(3)).replace("-", "−");
+}
+function niceTicks(a, b, n = 5) {
+  const step0 = (b - a) / n, mag = Math.pow(10, Math.floor(Math.log10(step0))), r = step0 / mag;
+  const step = (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * mag;
+  const out = []; for (let v = Math.ceil(a / step) * step; v <= b + 1e-9*step; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+const logLabel = (parent, v, x, y, color) => { const e = Math.round(Math.log10(v)); return texSvg(parent, `10^{${e}}`, e === 0 ? "1" : `1e${e}`, x, y, { size: 11.5, color: color || "var(--muted)" }); };
+function frame(svg, o) {
+  svg.textContent = "";
+  const W = 680, H = +svg.getAttribute("viewBox").split(" ")[3];
+  const m = { l: 64, r: 16, t: o.top ? 40 : 14, b: 46 };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const tx = o.xlog ? v => m.l + (Math.log10(v) - Math.log10(o.x[0])) / (Math.log10(o.x[1]) - Math.log10(o.x[0])) * pw
+                    : v => m.l + (v - o.x[0]) / (o.x[1] - o.x[0]) * pw;
+  const ty = o.ylog ? v => m.t + ph - (Math.log10(v) - Math.log10(o.y[0])) / (Math.log10(o.y[1]) - Math.log10(o.y[0])) * ph
+                    : v => m.t + ph - (v - o.y[0]) / (o.y[1] - o.y[0]) * ph;
+  const id = svg.id + "_clip";
+  el("rect", { x: m.l, y: m.t, width: pw, height: ph }, el("clipPath", { id }, el("defs", {}, svg)));
+  const bg = el("g", { "clip-path": `url(#${id})` }, svg);
+  const grid = el("g", {}, svg);
+  const logTicks = ([a, b]) => { const out = []; for (let e = Math.floor(Math.log10(a)); e <= Math.ceil(Math.log10(b)); e++) { const v = Math.pow(10, e); if (v >= a*0.999 && v <= b*1.001) out.push(v); } return out; };
+  const xt = o.xlog ? logTicks(o.x) : niceTicks(o.x[0], o.x[1], 6);
+  const yt = o.ylog ? logTicks(o.y) : niceTicks(o.y[0], o.y[1], 5);
+  xt.forEach(v => {
+    el("line", { x1: tx(v), x2: tx(v), y1: m.t, y2: m.t + ph, stroke: "var(--grid)" }, grid);
+    if (o.xlog) logLabel(grid, v, tx(v), m.t + ph + 18);
+    else el("text", { x: tx(v), y: m.t + ph + 16, "text-anchor": "middle" }, grid).textContent = fmt(v);
+  });
+  yt.forEach(v => {
+    el("line", { x1: m.l, x2: m.l + pw, y1: ty(v), y2: ty(v), stroke: "var(--grid)" }, grid);
+    if (o.ylog) { const g = logLabel(grid, v, 0, 0); g.setAttribute("transform", `translate(${m.l - 18},${ty(v) + 4})`); }
+    else el("text", { x: m.l - 6, y: ty(v) + 4, "text-anchor": "end" }, grid).textContent = fmt(v);
+  });
+  const minor = (lo, hi, f) => { for (let e = Math.floor(Math.log10(lo)); e < Math.log10(hi); e++) for (let j = 2; j < 10; j++) { const v = j * Math.pow(10, e); if (v > lo && v < hi) f(v); } };
+  if (o.xlog) minor(o.x[0], o.x[1], v => el("line", { x1: tx(v), x2: tx(v), y1: m.t + ph, y2: m.t + ph - 4, stroke: "var(--muted)" }, grid));
+  if (o.ylog) minor(o.y[0], o.y[1], v => el("line", { x1: m.l, x2: m.l + 4, y1: ty(v), y2: ty(v), stroke: "var(--muted)" }, grid));
+  el("rect", { x: m.l, y: m.t, width: pw, height: ph, fill: "none", stroke: "var(--rule)" }, grid);
+  texSvg(grid, o.xlabel[0], o.xlabel[1], m.l + pw / 2, H - 6);
+  texSvg(grid, o.ylabel[0], o.ylabel[1], 18, m.t + ph / 2, { rotate: -90, center: true });
+  if (o.top) { // secondary tau12 axis
+    const [lo, hi] = o.x.map(v => v * o.top.scale);
+    logTicks([lo, hi]).forEach(v => { const x = tx(v / o.top.scale); el("line", { x1: x, x2: x, y1: m.t, y2: m.t - 4, stroke: "var(--hco)" }, grid); logLabel(grid, v, x, m.t - 8, "var(--hco)"); });
+    texSvg(grid, o.top.label[0], o.top.label[1], m.l + pw, 14, { anchor: "end", color: "var(--hco)" });
+  }
+  const g = el("g", { "clip-path": `url(#${id})` }, svg);
+  return { tx, ty, g, bg, m, pw, ph };
+}
+function path(P, xs, ys, attrs, step) {
+  let d = "";
+  for (let i = 0; i < xs.length; i++) {
+    if (!isFinite(ys[i])) continue;
+    const X = P.tx(xs[i]), Y = P.ty(ys[i]);
+    if (step && d) { const xm = (P.tx(xs[i-1]) + X) / 2; d += `H${xm.toFixed(1)}V${Y.toFixed(1)}H${X.toFixed(1)}`; continue; }
+    d += (d ? "L" : "M") + `${X.toFixed(1)},${Y.toFixed(1)}`;
+  }
+  return el("path", Object.assign({ d, fill: "none", "stroke-width": 2 }, attrs), P.g);
+}
+
+// ---------- state & rendering ----------
+const ids = ["lt", "X", "sX", "rgc", "Tex", "ff", "fw", "rms", "dv", "thr"];
+function read() {
+  return { t13: Math.pow(10, +$("lt").value), X: +$("X").value, sX: +$("sX").value, Tex: +$("Tex").value, f: +$("ff").value,
+    fw: +$("fw").value, rms: +$("rms").value, dv: +$("dv").value, thr: +$("thr").value,
+    useLine: $("useLine").checked, noise: $("noise").checked, showRef: $("showRef").checked };
+}
+const tauGrid = []; for (let e = -3.5; e <= 1.5001; e += 0.025) tauGrid.push(Math.pow(10, e));
+const fmtTau = t => t === 0 ? "0" : !isFinite(t) ? "∞" : t < 0.01 ? t.toExponential(1) : t < 10 ? t.toFixed(t < 0.1 ? 3 : 2) : t < 1000 ? t.toFixed(0) : t.toExponential(1);
+const REG = { ok: ["ok", "Constrained"], weak: ["warn", "Weakly constrained"], up: ["lim", "Both thin: upper limit only"], low: ["lim", "Both thick: lower limit only"] };
+const TAU13 = ["\\tau_{0}(\\mathrm{H^{13}CO^{+}})", "τ₀(H¹³CO⁺)"], TAU12 = ["\\tau_{0}(\\mathrm{HCO^{+}})", "τ₀(HCO⁺)"];
+
+function render() {
+  const p = read(), M = model(p), A = M.analyse(p.t13), t12 = M.k * p.X * p.t13;
+  // control readouts
+  $("o_t13").textContent = fmtTau(p.t13); $("o_t12").textContent = fmtTau(t12);
+  $("o_X").textContent = p.X; $("o_sX").textContent = Math.round(p.sX * 100) + " %";
+  $("o_rgc").textContent = (+$("rgc").value).toFixed(1) + " kpc";
+  $("o_Tex").textContent = p.Tex.toFixed(1) + " K"; $("o_ff").textContent = p.f.toFixed(2);
+  $("o_fw").textContent = p.fw.toFixed(1) + " km/s"; $("o_rms").textContent = (p.rms * 1000).toFixed(0) + " mK";
+  $("o_dv").textContent = p.dv.toFixed(2) + " km/s"; $("o_thr").textContent = Math.round(p.thr * 100) + " %";
+  const gsel = GRAD[$("grad").value], rg = +$("rgc").value;
+  $("gradnote").textContent = `${gsel.txt} gives X = ${(gsel.a * rg + gsel.b).toFixed(0)} at ${rg.toFixed(1)} kpc.`;
+
+  // status
+  const [cls, txt] = REG[A.regime];
+  $("pill").className = "pill " + cls; $("pill").textContent = txt;
+  ["up", "low", "ok", "weak"].forEach(r => $("in_" + r).hidden = r !== A.regime);
+  $("r_T12").textContent = A.T12.toFixed(3) + " K"; $("r_T13").textContent = A.T13.toFixed(3) + " K";
+  $("r_R").textContent = A.R.toFixed(2) + " ± " + A.sEff.toFixed(2);
+  $("r_RW").textContent = M.Wratio(p.t13).toFixed(2);
+  $("r_br").textContent = "× " + broaden(t12).toFixed(2);
+  const iv = (lo, hi, c) => lo === 0 ? "< " + fmtTau(hi * c) : !isFinite(hi) ? "> " + fmtTau(lo * c) : `${fmtTau(lo * c)} – ${fmtTau(hi * c)}`;
+  $("r_tau13").textContent = iv(A.tLo, A.tHi, 1);
+  $("r_tau12").textContent = iv(A.tLo, A.tHi, M.k * p.X) + (A.regime === "ok" || A.regime === "weak" ? ` (±${Math.round(A.f12 * 100)} %)` : "");
+  $("r_ke").textContent = M.k.toFixed(3) + ", " + M.eps.toFixed(3);
+
+  drawSpectra(p, M, t12, A);
+  drawRatio(p, M, A);
+  drawConstraint(p, M);
+}
+
+function drawSpectra(p, M, t12, A) {
+  const sig = p.fw / (2 * Math.sqrt(2 * Math.LN2));
+  const vmax = Math.max(3 * p.fw, sig * Math.sqrt(2 * Math.log(Math.max(t12, 2))) * 1.6);
+  const n = Math.round(2 * vmax / p.dv) + 1, nz1 = noiseArr(2 * n);
+  const v = [], y12 = [], y13 = [], yr = [];
+  for (let i = 0; i < n; i++) {
+    const x = -vmax + i * p.dv, g = Math.exp(-x * x / (2 * sig * sig));
+    v.push(x);
+    y12.push(M.A12 * om(t12 * g) + (p.noise ? p.rms * nz1[i] : 0));
+    y13.push(M.A13 * om(p.t13 * g) + (p.noise ? p.rms * nz1[n + i] : 0));
+    yr.push(M.A13 * om(p.t13 * g) * M.k * p.X);
+  }
+  const top = Math.max(A.T12, A.T13) * 1.15 + (p.noise ? 3 * p.rms : 0);
+  const P = frame($("p_spec"), { x: [-vmax, vmax], y: [-(p.noise ? 3.5 * p.rms : 0.05 * top), top],
+    xlabel: ["v - v_{0}\\ \\ (\\mathrm{km\\,s^{-1}})", "v − v₀ (km/s)"], ylabel: ["T_{\\rm mb}\\ (\\mathrm{K})", "T_mb (K)"] });
+  el("line", { x1: P.m.l, x2: P.m.l + P.pw, y1: P.ty(M.A12), y2: P.ty(M.A12), stroke: "var(--muted)", "stroke-dasharray": "5 4", "stroke-width": 1.2 }, P.g);
+  el("line", { x1: P.m.l, x2: P.m.l + P.pw, y1: P.ty(0), y2: P.ty(0), stroke: "var(--muted)", "stroke-width": 0.8 }, P.g);
+  if (p.showRef) path(P, v, yr, { stroke: "var(--ref)", "stroke-dasharray": "6 4", "stroke-width": 1.6 });
+  path(P, v, y13, { stroke: "var(--h13)", "stroke-width": 1.8 }, p.noise);
+  path(P, v, y12, { stroke: "var(--hco)", "stroke-width": 1.8 }, p.noise);
+  $("lg_ref").hidden = !p.showRef;
+  if (p.showRef && M.A13 * om(p.t13) * M.k * p.X > top) {
+    el("text", { x: P.m.l + P.pw - 6, y: P.m.t + 14, "text-anchor": "end", style: "fill:var(--ref)" }, P.g).textContent = `H¹³CO⁺ × κX peaks at ${(M.A13 * om(p.t13) * M.k * p.X).toFixed(1)} K ↑`;
+  }
+}
+
+function drawRatio(p, M, A) {
+  const thin = M.F(1e-7, p.X), thick = M.eps;
+  const ymax = Math.max(thin * (1 + p.sX) * 1.4, 3), ymin = 0.7;
+  const P = frame($("p_ratio"), { x: [tauGrid[0], tauGrid[tauGrid.length - 1]], y: [ymin, ymax], xlog: true, ylog: true,
+    xlabel: TAU13, ylabel: ["R = T_{12}/T_{13}", "R = T₁₂/T₁₃"], top: { scale: M.k * p.X, label: TAU12 } });
+  // X ± σX band
+  const up = tauGrid.map(t => M.F(t, p.X * (1 + p.sX))), dn = tauGrid.map(t => M.F(t, Math.max(1, p.X * (1 - p.sX))));
+  let d = tauGrid.map((t, i) => `${i ? "L" : "M"}${P.tx(t).toFixed(1)},${P.ty(up[i]).toFixed(1)}`).join("");
+  for (let i = tauGrid.length - 1; i >= 0; i--) d += `L${P.tx(tauGrid[i]).toFixed(1)},${P.ty(dn[i]).toFixed(1)}`;
+  el("path", { d: d + "Z", fill: "var(--grid)", stroke: "none" }, P.g);
+  [thin, thick].forEach(y => el("line", { x1: P.m.l, x2: P.m.l + P.pw, y1: P.ty(y), y2: P.ty(y), stroke: "var(--muted)", "stroke-dasharray": "5 4", "stroke-width": 1.2 }, P.g));
+  texSvg(P.g, `\\varepsilon\\kappa X = ${thin.toFixed(1)}`, `thin limit εκX = ${thin.toFixed(1)}`, P.m.l + 8, P.ty(thin) - 7, { anchor: "start", size: 12, color: "var(--muted)" });
+  texSvg(P.g, `\\varepsilon = ${thick.toFixed(2)}`, `thick limit ε = ${thick.toFixed(2)}`, P.m.l + P.pw - 8, P.ty(thick) - 7, { anchor: "end", size: 12, color: "var(--muted)" });
+  const tw = tauGrid.filter((_, i) => i % 2 === 0);
+  path(P, tw, tw.map(t => M.Wratio(t)), { stroke: "var(--ink)", "stroke-dasharray": "6 4", "stroke-width": 1.4 });
+  path(P, tauGrid, tauGrid.map(t => M.F(t, p.X)), { stroke: "var(--ink)", "stroke-width": 2 });
+  // current point with error bar and derived tau interval
+  const x0 = P.tx(p.t13), y0 = P.ty(A.R);
+  const xl = A.tLo === 0 ? P.m.l : P.tx(Math.max(A.tLo, tauGrid[0])), xh = !isFinite(A.tHi) ? P.m.l + P.pw : P.tx(Math.min(A.tHi, tauGrid[tauGrid.length - 1]));
+  const col = A.regime === "ok" ? "var(--ok)" : A.regime === "weak" ? "var(--warn)" : "var(--lim)";
+  el("rect", { x: xl, y: P.m.t, width: Math.max(1, xh - xl), height: P.ph, fill: col, opacity: 0.12 }, P.g);
+  el("line", { x1: xl, x2: xh, y1: y0, y2: y0, stroke: col, "stroke-width": 3 }, P.g);
+  el("line", { x1: x0, x2: x0, y1: P.ty(A.R + A.sEff), y2: P.ty(Math.max(ymin, A.R - A.sEff)), stroke: "var(--hco)", "stroke-width": 2.5 }, P.g);
+  el("circle", { cx: x0, cy: y0, r: 5, fill: "var(--hco)", stroke: "var(--panel)", "stroke-width": 1.5 }, P.g);
+}
+
+function drawConstraint(p, M) {
+  const rows = tauGrid.map(t => Object.assign({ t }, M.analyse(t)));
+  const P = frame($("p_con"), { x: [tauGrid[0], tauGrid[tauGrid.length - 1]], y: [0.01, 10], xlog: true, ylog: true,
+    xlabel: TAU13, ylabel: ["\\sigma_\\tau/\\tau", "σ_τ/τ"], top: { scale: M.k * p.X, label: TAU12 } });
+  // regime bands
+  const colr = { ok: "var(--ok-bg)", weak: "var(--warn-bg)", up: "var(--lim-bg)", low: "var(--lim-bg)" };
+  let s = 0;
+  for (let i = 1; i <= rows.length; i++) {
+    if (i === rows.length || rows[i].regime !== rows[s].regime) {
+      const a = Math.sqrt(rows[s].t * (s ? rows[s - 1].t : rows[s].t)), b = i < rows.length ? Math.sqrt(rows[i - 1].t * rows[i].t) : rows[i - 1].t;
+      el("rect", { x: P.tx(a), y: P.m.t, width: P.tx(b) - P.tx(a), height: P.ph, fill: colr[rows[s].regime] }, P.bg);
+      const lbl = { up: "upper limit", low: "lower limit", ok: "constrained", weak: "weak" }[rows[s].regime];
+      if (P.tx(b) - P.tx(a) > 70) el("text", { x: (P.tx(a) + P.tx(b)) / 2, y: P.m.t + P.ph - 8, "text-anchor": "middle", class: "lab" }, P.bg).textContent = lbl;
+      s = i;
+    }
+  }
+  el("line", { x1: P.m.l, x2: P.m.l + P.pw, y1: P.ty(p.thr), y2: P.ty(p.thr), stroke: "var(--muted)", "stroke-dasharray": "5 4", "stroke-width": 1.2 }, P.g);
+  el("text", { x: P.m.l + 6, y: P.ty(p.thr) - 6 }, P.g).textContent = `threshold ${Math.round(p.thr * 100)} %`;
+  el("line", { x1: P.m.l, x2: P.m.l + P.pw, y1: P.ty(p.sX || 1e-3), y2: P.ty(p.sX || 1e-3), stroke: "var(--hco)", "stroke-dasharray": "2 4", "stroke-width": 1.2, opacity: 0.8 }, P.g);
+  path(P, tauGrid, rows.map(r => Math.min(r.f13, 1e3)), { stroke: "var(--h13)" });
+  path(P, tauGrid, rows.map(r => Math.min(r.f12, 1e3)), { stroke: "var(--hco)" });
+  el("line", { x1: P.tx(p.t13), x2: P.tx(p.t13), y1: P.m.t, y2: P.m.t + P.ph, stroke: "var(--ink)", "stroke-width": 1.2, opacity: 0.7 }, P.g);
+  // summary (math is typeset once in the static template; only numbers change)
+  const okRows = rows.filter(r => r.regime === "ok"), kx = M.k * p.X;
+  $("sum_ok").hidden = !okRows.length; $("sum_no").hidden = !!okRows.length;
+  if (okRows.length) {
+    const a = okRows[0].t, b = okRows[okRows.length - 1].t, best = rows.reduce((m, r) => r.f13 < m.f13 ? r : m);
+    $("s_thr").textContent = Math.round(p.thr * 100) + " %";
+    $("s_r13").textContent = `[${fmtTau(a)}, ${fmtTau(b)}]`;
+    $("s_r12").textContent = `[${fmtTau(a * kx)}, ${fmtTau(b * kx)}]`;
+    $("s_best").textContent = fmtTau(best.t);
+    $("s_sx").textContent = Math.round(p.sX * 100) + " %";
+  }
+}
+
+// ---------- wiring ----------
+ids.forEach(i => $(i).addEventListener("input", render));
+["useLine", "noise", "showRef"].forEach(i => $(i).addEventListener("change", render));
+function applyGrad() { const g = GRAD[$("grad").value]; $("X").value = Math.round(g.a * (+$("rgc").value) + g.b); render(); }
+$("grad").addEventListener("change", applyGrad);
+$("rgc").addEventListener("input", applyGrad);
+
+let anim = null;
+$("play").addEventListener("click", () => {
+  if (anim) { cancelAnimationFrame(anim); anim = null; $("play").textContent = "▶ Sweep thin → thick"; return; }
+  const sl = $("lt"), lo = +sl.min, hi = +sl.max;
+  if (+sl.value >= hi - 0.01) sl.value = lo;
+  $("play").textContent = "❚❚ Pause";
+  let last = performance.now();
+  const step = now => {
+    const dt = (now - last) / 1000; last = now;
+    const v = Math.min(hi, +sl.value + dt * 0.55); sl.value = v; render();
+    if (v < hi) anim = requestAnimationFrame(step); else { anim = null; $("play").textContent = "▶ Sweep thin → thick"; }
+  };
+  anim = requestAnimationFrame(step);
+});
+
+render();
+// re-draw plots with TeX labels once MathJax is up (page text is typeset by MathJax's startup)
+const waitMJ = () => window.MathJax && MathJax.startup && MathJax.startup.promise
+  ? MathJax.startup.promise.then(() => { mjReady = true; render(); })
+  : setTimeout(waitMJ, 100);
+waitMJ();
+})();
+</script>
+</body>
+</html>
